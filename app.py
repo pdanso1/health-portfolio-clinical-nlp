@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from nlp.sample_notes import SAMPLE_NOTES
 from nlp.extractor import extract_entities
-from nlp.claude_parser import parse_note, EMPTY_RESULT
+from nlp.claude_parser import parse_note
 from nlp.icd_mapper import enrich_diagnoses
 
 # ---------------------------------------------------------------------------
@@ -62,52 +62,6 @@ ENTITY_TEXT_COLORS = {
     "PROCEDURE": "black",
     "CLINICAL_FINDING": "black",
 }
-
-
-def confidence_badge(score: float) -> str:
-    """Returns HTML badge string for confidence score."""
-    if score >= 0.85:
-        color = "#2E7D32"   # dark green
-    elif score >= 0.70:
-        color = "#E65100"   # amber
-    else:
-        color = "#C62828"   # red
-    return (
-        f'<span style="background-color: {color}; color: white; '
-        f'padding: 2px 6px; border-radius: 10px; font-size: 0.85em;">'
-        f'{score:.0%}</span>'
-    )
-
-
-def status_badge(status: str, category: str = "diagnosis") -> str:
-    """Returns a colored badge for status fields."""
-    if category == "diagnosis":
-        mapping = {
-            "active": ("#2E7D32", "white"),
-            "historical": ("#757575", "white"),
-            "negated": ("#C62828", "white"),
-        }
-    elif category == "finding":
-        mapping = {
-            "present": ("#2E7D32", "white"),
-            "absent": ("#C62828", "white"),
-            "uncertain": ("#E65100", "white"),
-        }
-    elif category == "lab":
-        mapping = {
-            "normal": ("#2E7D32", "white"),
-            "abnormal": ("#E65100", "white"),
-            "critical": ("#C62828", "white"),
-        }
-    else:
-        mapping = {}
-
-    bg, fg = mapping.get(str(status).lower(), ("#9E9E9E", "white"))
-    return (
-        f'<span style="background-color: {bg}; color: {fg}; '
-        f'padding: 2px 8px; border-radius: 10px; font-size: 0.85em;">'
-        f'{status}</span>'
-    )
 
 
 def build_highlighted_html(text: str, entities: list[dict]) -> str:
@@ -225,6 +179,33 @@ with left_col:
 
     extract_button = st.button("Extract Entities", type="primary", use_container_width=True)
 
+    # ============================================================
+    # Processing — on button click
+    # ============================================================
+    if extract_button:
+        if not note_text or not note_text.strip():
+            st.warning("Please enter or select a clinical note before extracting.")
+        else:
+            with st.spinner("Extracting entities…"):
+                # Stage 1: spaCy
+                spacy_entities = extract_entities(note_text)
+
+                # Stage 2: Claude
+                claude_result = parse_note(note_text)
+
+                # Stage 3: Enrich diagnoses with local ICD-10 map
+                claude_result["diagnoses"] = enrich_diagnoses(claude_result["diagnoses"])
+
+                # Store in session state
+                st.session_state["results"] = {
+                    "note_text": note_text,
+                    "spacy_entities": spacy_entities,
+                    "claude_result": claude_result,
+                }
+
+            # Safe here: guarded by `if extract_button`, so next pass won't re-trigger processing.
+            st.rerun()
+
     # Pipeline metrics (shown after extraction)
     if "results" in st.session_state:
         results = st.session_state["results"]
@@ -241,32 +222,6 @@ with left_col:
         m1, m2 = st.columns(2)
         m1.metric("spaCy entities", spacy_count)
         m2.metric("Claude entities", claude_count)
-
-# ============================================================
-# Processing — on button click
-# ============================================================
-if extract_button:
-    if not note_text or not note_text.strip():
-        st.warning("Please enter or select a clinical note before extracting.")
-    else:
-        with st.spinner("Extracting entities…"):
-            # Stage 1: spaCy
-            spacy_entities = extract_entities(note_text)
-
-            # Stage 2: Claude
-            claude_result = parse_note(note_text)
-
-            # Stage 3: Enrich diagnoses with local ICD-10 map
-            claude_result["diagnoses"] = enrich_diagnoses(claude_result["diagnoses"])
-
-            # Store in session state
-            st.session_state["results"] = {
-                "note_text": note_text,
-                "spacy_entities": spacy_entities,
-                "claude_result": claude_result,
-            }
-
-        st.rerun()  # re-render so metrics show in left col
 
 # ============================================================
 # RIGHT COLUMN — Results
