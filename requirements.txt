@@ -1,5 +1,7 @@
 streamlit>=1.32.0
 pandas>=2.0.0
-spacy>=3.7.0
+spacy==3.7.4
+thinc==8.2.3
+numpy==1.26.4
 anthropic>=0.25.0
 https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
