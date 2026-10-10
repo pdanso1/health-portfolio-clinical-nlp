@@ -1,7 +1,7 @@
 """
 Claude API clinical entity parser (Stage 2 of the two-stage NLP pipeline).
 
-Uses claude-haiku-4-5-20251001 to extract structured clinical entities that
+Uses claude-haiku-5-5 to extract structured clinical entities that
 rule-based spaCy may miss: ICD-10/LOINC/CPT codes, negation detection,
 confidence scores, and temporal context.
 
@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-MODEL = "claude-haiku-4-5-20251001"
-MAX_TOKENS = 2048
+MODEL = "claude-haiku-5-5"
+MAX_TOKENS = 8000  # Haiku 5.5 thinking counts toward max_tokens
 
 EMPTY_RESULT: dict = {
     "diagnoses": [],
